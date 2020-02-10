@@ -31,7 +31,7 @@ from .config import get_config, is_config, load_all_general_config, is_yes
 from .db import get_db_connection, query_database, get_db_config
 from .emailer import notify_user, notify_user_failure
 from .logger import log, setup_logger
-from .file_system import setup_workdir, cleanup_lockfile, cleanup_workdir, check_stop
+from .file_system import setup_workdir, cleanup_lockfile, cleanup_workdir, check_stop  # noqa: F401
 from .instance_tracking import add_instance_record, update_instance_record
 from .process_ids import get_process_id_dict
 
@@ -207,7 +207,7 @@ def get_looks(dir_):
                         log.warning(
                             'range_looks/azimuth_looks not found in ' + filepath)
                         return ''
-                except Exception as e:
+                except Exception:
                     log.warning(
                             'An error occurred trying to get the number of looks from ' + filepath)
                     return ''
@@ -432,7 +432,7 @@ def reproject_image(cfg, in_image, out_image, epsg):
         execute(
             cfg, "gdal_translate -of PNG {0} {1}".format(tmpTiff, out_image), expected=out_image)
         return True
-    except Exception as e:
+    except Exception:
         log.exception('Geocoded browse generation failed.')
         return False
 
@@ -463,15 +463,10 @@ def find_browses(cfg, dir_):
         new_geo = os.path.join(cfg['workdir'], base)
 
     if geo.endswith('.png'):
-        xml = geo.replace('.png', '.png.aux.xml')
-
-        geo_merc = new_geo.replace('.png', '_epsg' + str(epsg) + '.png')
         geo_merc_xml = new_geo.replace(
             '.png', '_epsg' + str(epsg) + '.png.aux.xml')
 
     elif geo.endswith('.jpg'):
-        xml = geo.replace('.jpg', '.jpg.aux.xml')
-
         geo_merc = geo.replace('.jpg', '_epsg' + str(epsg) + '.jpg')
         geo_merc_xml = geo.replace(
             '.jpg', '_epsg' + str(epsg) + '.jpg.aux.xml')
