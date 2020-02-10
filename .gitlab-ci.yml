@@ -1,0 +1,149 @@
+# setuptools-scm doesn't work well with a shallow clone, see:
+#    https://docs.gitlab.com/ee/ci/yaml/#shallow-cloning
+variables:
+  GIT_DEPTH: 0
+
+.conda_template: &before_conda_env
+  - source $HOME/.bashrc
+  - conda install -c conda-forge -y tox tox-conda
+
+.before_template: &before_defaults
+  - python3 -m pip install --upgrade pip
+  - python3 -m pip install --upgrade setuptools wheel twine s3pypi "setuptools-scm[toml]" importlib_metadata
+
+default:
+  image:
+    name: continuumio/miniconda3:latest
+    entrypoint: ["/bin/bash"]
+  # Tags are not(!) inherited by jobs, contrary to the docs.
+  # See: https://gitlab.com/gitlab-org/gitlab/issues/194312
+  # tags:
+  #   - kubernetes
+  before_script:
+    - *before_defaults
+
+
+stages:
+    - tools-bot
+    # Lots and lots of good testing options in this curated list:
+    #    https://github.com/vintasoftware/python-linters-and-code-analysis
+    - static analysis
+    - test
+    - build
+    - publish
+    - verify
+    - trigger
+
+
+bandit SAST:
+  stage: static analysis
+  tags:
+    - kubernetes
+  before_script:
+    - *before_defaults
+    - python3 -m pip install bandit
+  script:
+    - bandit -r hyp3proclib
+  allow_failure: true
+
+
+trufflehog secrets:
+  stage: static analysis
+  tags:
+    - kubernetes
+  before_script:
+    - *before_defaults
+    - python3 -m pip install trufflehog
+  script:
+    - export LAST_TAG_HASH=$(git show-ref --hash -- $(git describe --abbrev=0))
+    - trufflehog --regex --entropy False --since_commit "${LAST_TAG_HASH}" file://"${PWD}"
+
+
+flake8 full:
+  stage: static analysis
+  tags:
+    - kubernetes
+  before_script:
+    - *before_defaults
+    - python3 -m pip install flake8 flake8-import-order flake8-blind-except flake8-builtins
+  script:
+    - flake8 --max-line-length=120
+  allow_failure: true
+
+
+flake8 limted:
+  stage: static analysis
+  tags:
+    - kubernetes
+  before_script:
+    - *before_defaults
+    - python3 -m pip install flake8
+  script:
+    - flake8 --max-line-length=120 --ignore=E,W,N8
+
+
+pytest 37:
+  stage: test
+  tags:
+    - kubernetes
+  before_script:
+    - *before_conda_env
+  script:
+    - tox --develop -e py37 -- --cov=hyp3proclib
+  coverage: '/TOTAL\s+\d+\s+\d+\s+(\d+%)/'
+
+
+pytest 38:
+  stage: test
+  tags:
+    - kubernetes
+  before_script:
+    - *before_conda_env
+  script:
+    - tox -e py38
+
+
+pytest 36:
+  stage: test
+  tags:
+    - kubernetes
+  before_script:
+    - *before_conda_env
+  script:
+    - tox -e py36
+
+
+pytest 27:
+  stage: test
+  tags:
+    - kubernetes
+  before_script:
+    - *before_conda_env
+  script:
+    - tox -e py27
+
+
+build:
+  stage: build
+  tags:
+    - kubernetes
+  script:
+    - echo "Building version $(python3 setup.py --version)"
+    - python3 setup.py sdist bdist_wheel
+
+
+deploy S3 PyPI:
+  stage: publish
+  tags:
+    - kubernetes
+  script:
+    - echo "Uploading version $(python3 setup.py --version) to S3-PyPI"
+    - s3pypi --bucket hyp3-pypi --verbose
+
+
+test S3 PyPI:
+  stage: verify
+  tags:
+    - kubernetes
+  script:
+    - python3 -m pip install hyp3proclib --trusted-host "${S3_PYPI_HOST}" --extra-index-url "http://${S3_PYPI_HOST}"
