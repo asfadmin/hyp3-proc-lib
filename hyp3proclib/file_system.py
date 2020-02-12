@@ -1,9 +1,6 @@
-# file_system.py
-# Rohan Weeden
-# Created: May 16, 2018
+"""Module for proc_lib functions that manipulate the file system"""
 
-# Module for proc_lib functions that manipulate the file system
-
+import errno
 import os
 import shutil
 import sys
@@ -11,7 +8,20 @@ import uuid
 import datetime
 from contextlib import contextmanager
 
-from .logger import log
+from hyp3proclib.logger import log
+
+
+def mkdir_p(path):
+    """
+    Make parent directories as needed and no error if existing. Works like `mkdir -p`.
+    """
+    try:
+        os.makedirs(path)
+    except OSError as exc:  # Python >2.5
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise
 
 
 def setup_workdir(cfg):

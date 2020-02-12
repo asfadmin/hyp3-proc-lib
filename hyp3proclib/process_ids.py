@@ -1,4 +1,4 @@
-from .db import get_db_connection, query_database
+from hyp3proclib.db import get_db_connection, query_database
 
 
 def get_process_id_dict():

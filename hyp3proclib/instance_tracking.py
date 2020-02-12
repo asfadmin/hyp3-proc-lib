@@ -1,17 +1,13 @@
-# instance_tracking.py
-# Rohan Weeden
-# Created: June 1, 2018
-
-# Module for proc_lib instance tracking functions
+"""Module for proc_lib instance tracking functions"""
 
 import socket
 from contextlib import contextmanager
 
 import requests
 
-from .db import get_db_connection, query_database
-from .file_system import lockfile
-from .logger import log
+from hyp3proclib.db import get_db_connection, query_database
+from hyp3proclib.file_system import lockfile
+from hyp3proclib.logger import log
 
 
 @contextmanager

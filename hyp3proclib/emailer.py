@@ -1,8 +1,5 @@
-# email.py
-# Rohan Weeden
-# Created: May 16, 2018
+"""Module for proc_lib email functions"""
 
-# Module for proc_lib email functions
 import datetime
 import smtplib
 import uuid
@@ -16,9 +13,10 @@ except ImportError:
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-from .config import get_config
-from .db import get_db_connection, get_user_info, query_database
-from .logger import log
+from hyp3proclib.config import get_config
+from hyp3proclib.db import get_db_connection, get_user_info, query_database
+from hyp3proclib.logger import log
+
 
 def queue_email(conn, lqid, to_address, subject, body):
     sql = '''

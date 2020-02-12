@@ -19,13 +19,13 @@ setup(
     author='ASF APD/Tools Team',
     author_email='uaf-asf-apd@alaska.edu',
 
-    license='BSD',
+    license='BSD-3-Clause',
     include_package_data=True,
 
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Science/Research',
-        'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
+        'License :: OSI Approved :: BSD License',
         'Natural Language :: English',
         'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.7',
@@ -37,7 +37,11 @@ setup(
         ],
 
     install_requires=[
+        'boto3',
+        'hyp3lib',
         'importlib_metadata',
+        'pillow',
+        'psycopg2',
         'requests',
         'six',
     ],

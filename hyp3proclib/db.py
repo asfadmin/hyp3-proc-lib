@@ -1,15 +1,11 @@
-# db.py
-# Rohan Weeden
-# Created: May 16, 2018
-
-# Module for proc_lib database functions
+"""Module for proc_lib database functions"""
 
 import time
 
 import psycopg2
 
-from .config import get_config
-from .logger import log
+from hyp3proclib.config import get_config
+from hyp3proclib.logger import log
 
 
 def get_db_connection(s, tries=0):

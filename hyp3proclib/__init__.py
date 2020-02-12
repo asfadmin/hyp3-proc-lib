@@ -1,7 +1,9 @@
-#!/usr/bin/python
+#!/usr/bin/env python
+
 from __future__ import division
 from __future__ import print_function
 
+import argparse
 import boto3
 import datetime
 import hashlib
@@ -11,7 +13,6 @@ import shutil
 import subprocess
 import sys
 import zipfile
-from optparse import OptionParser
 import signal
 import time
 import PIL
@@ -20,23 +21,39 @@ from PIL import Image
 import mimetypes
 from zipfile import ZipFile
 
+from hyp3lib.draw_polygon_on_raster import draw_polygon_from_shape_on_raster
+from hyp3lib.subset_geotiff_shape import subset_geotiff_shape
+from hyp3lib.asf_geometry import get_latlon_extent
+
+from hyp3proclib.config import get_config, is_config, load_all_general_config, is_yes
+from hyp3proclib.db import get_db_connection, query_database, get_db_config
+from hyp3proclib.emailer import notify_user, notify_user_failure
+from hyp3proclib.logger import log, setup_logger
+from hyp3proclib.file_system import setup_workdir, cleanup_lockfile, cleanup_workdir, check_stop  # noqa: F401
+from hyp3proclib.file_system import mkdir_p
+from hyp3proclib.instance_tracking import add_instance_record, update_instance_record
+from hyp3proclib.process_ids import get_process_id_dict
+
+# FIXME: Python 3.8+ this should be `from importlib.metadata...`
+from importlib_metadata import version, PackageNotFoundError
+
 try:
-    from draw_polygon_on_raster import draw_polygon_from_shape_on_raster
-    from subset_geotiff_shape import subset_geotiff_shape
-    from asf_geometry import get_latlon_extent
-except ImportError:  # Some just don't need these
+    __version__ = version(__name__)
+except PackageNotFoundError:
+    # package is not installed!
+    # Install in editable/develop mode via (from the top of this repo):
+    #    pip install --user .
+    # Or, to just get the version number use:
+    #    python setup.py --version
     pass
 
-from .config import get_config, is_config, load_all_general_config, is_yes
-from .db import get_db_connection, query_database, get_db_config
-from .emailer import notify_user, notify_user_failure
-from .logger import log, setup_logger
-from .file_system import setup_workdir, cleanup_lockfile, cleanup_workdir, check_stop  # noqa: F401
-from .instance_tracking import add_instance_record, update_instance_record
-from .process_ids import get_process_id_dict
-
-default_lock_dir = os.path.abspath(os.path.join(
-    os.path.dirname(__file__), os.pardir,  os.pardir, "lock"))
+# FIXME: really should refactor to eliminate package globals
+# Package globals
+default_cfg = None
+# FIXME: add ability to specify as argparse options
+default_lock_dir = os.path.join(os.path.expanduser('~'), '.hyp3', 'lock')
+default_log_dir = os.path.join(os.path.expanduser('~'), '.hyp3', 'log')
+default_config_file = os.path.join(os.path.expanduser('~'), '.hyp3',  'proc.cfg')
 
 
 def signal_handler(signum, frame):
@@ -48,133 +65,140 @@ def signal_handler(signum, frame):
     sys.exit(1)
 
 
-def setup(name):
-    parser = OptionParser()
-    parser.add_option(
-        "-v", "--verbose", action="store_true", dest="verbose", help="Print debug message (data will still be processed)",
+def setup(name, cli_args=None, airgap=False):
+    # FIXME: Add description
+    parser = argparse.ArgumentParser(prog=name)
+    parser.add_argument(
+        "-v", "--verbose", action="store_true",
+        help="Print debug message (data will still be processed)",
     )
-    parser.add_option(
-        "-d", "--debug", action="store", dest="debug",
+    parser.add_argument(
+        "-d", "--debug",
         help="Specify a previously used workdir.  Do not process, and use the results from that workdir.",
     )
-    parser.add_option(
-        "-k", "--keep", action="store_true", dest="keep", help="Do not clean up work directory after processing",
+    parser.add_argument(
+        "-k", "--keep", action="store_true",
+        help="Do not clean up work directory after processing",
     )
-    parser.add_option(
-        "--queue-id", action="store", dest="queue_id", help="Process a specific queue item.",
+    parser.add_argument(
+        "--queue-id",
+        help="Process a specific queue item.",
     )
-    parser.add_option(
-        "-n", "--num", action="store", type="int", dest="num", default=1, help="Process the specified number of products, default 1",
+    parser.add_argument(
+        "-n", "--num", type=int, default=1,
+        help="Process the specified number of products, default 1",
     )
-    parser.add_option(
-        "--retry", action="store_true", dest="retry", help="Process jobs in RETRY status",
+    parser.add_argument(
+        "--retry", action="store_true",
+        help="Process jobs in RETRY status",
     )
-    parser.add_option(
-        "--spot", action="store_true", dest="spot", help="Select only jobs where 0 < s.priority <= 10. To be used for spot instances",
+    parser.add_argument(
+        "--spot", action="store_true",
+        help="Select only jobs where 0 < s.priority <= 10. To be used for spot instances",
     )
-    parser.add_option(
-        "--on-prem", action="store_true", dest="on_prem", help="Select any job with any s.priority. To be used for on-premise.",
+    parser.add_argument(
+        "--on-prem", action="store_true",
+        help="Select any job with any s.priority. To be used for on-premise.",
     )
-    parser.add_option(
-        "--input", action="store", type="string", dest="input_type", default='RTC', help="For generic processors (time series), select input type, RTC or InSAR.",
+    # FIXME: This should use the choices keyword argument to allow only RTC or InSAR,
+    #        if help message is true.
+    parser.add_argument(
+        "--input", type=str, dest="input_type", default='RTC',
+        help="For generic processors (time series), select input type, RTC or InSAR.",
     )
-    (options, args) = parser.parse_args()
-
-    conn = get_db_connection('hyp3-db')
+    args = parser.parse_args(cli_args)
 
     cfg = dict()
     load_all_general_config(cfg)
 
     if 'lock_dir' not in cfg:
         cfg['lock_dir'] = default_lock_dir
+    mkdir_p(cfg['lock_dir'])
     if 'notify_fail' not in cfg:
         cfg['notify_fail'] = False
     if 'write_log_file' not in cfg:
         cfg['write_log_file'] = True
+    mkdir_p(default_log_dir)
     if 'workdir' not in cfg:
         cfg['workdir'] = '/tmp'
-                
+    if 'default_rtc_resolution' not in cfg:
+        cfg['default_rtc_resolution'] = '30m'
+
+    # Update proc name in case of generic wrapper
+    if name == 'generic_ts':
+        cfg['input_type'] = args.input_type
+        if args.input_type.lower() == 'insar':
+            name = 'stack_ts_insar'
+        else:
+            name = 'stack_ts_rtc'
+        log.debug(
+            "Initializing process as proc-type {0} and with process key {1}".format(args.input_type.lower(), name)
+        )
+    cfg['proc_name'] = name
+
+    cfg["keep"] = args.keep
+    cfg["queue_id"] = args.queue_id
+    cfg['allow_non_sentinel'] = (name == 'rtc_gamma')  # TODO: Move to the DB?
+    cfg['attachment'] = None
+    cfg['lag'] = ''
+    cfg['Legacy'] = False
+    cfg['log'] = ''
+    cfg['notify_retries'] = 2
+    cfg['num_to_process'] = args.num
+    cfg['on_prem'] = args.on_prem
     cfg['original_workdir'] = cfg['workdir']
+    cfg['PALSAR'] = False
+    cfg['retry'] = args.retry
+    cfg['skip_processing'] = False
+    cfg['spot'] = args.spot
+    cfg['user_workdir'] = False
 
     cfg['aws_region'] = get_config('aws', 'region')
     cfg['aws_secret_access_key'] = get_config('aws', 'secret_access_key')
     cfg['aws_access_key_id'] = get_config('aws', 'access_key_id')
-    cfg['gtm5sar_config'] = get_config('gmt5sar', 'config_file')
-    cfg['product_hash_type'] = get_db_config(conn, "product_hash_type")
     cfg['bucket'] = get_config('aws', 'bucket')
     cfg['browse_bucket'] = get_config('aws', 'browse_bucket')
-    cfg['bucket_lifecycle'] = get_db_config(conn, "bucket_lifecycle")
-    cfg['hyp3_product_url'] = get_db_config(conn, "hyp3_product_url")
-    cfg['hyp3-data-url'] = get_db_config(conn, "hyp3-data-url")
-    cfg['hyp3-browse-url'] = get_db_config(conn, "hyp3-browse-url")
-    cfg['notify_retries'] = 2
-    cfg["keep"] = options.keep
-    cfg["queue_id"] = options.queue_id
-    cfg['num_to_process'] = options.num
-    cfg['retry'] = options.retry
-    cfg['process_ids'] = get_process_id_dict()
-    cfg['log'] = ''
-    cfg['lag'] = ''
-    cfg['attachment'] = None
-    cfg['spot'] = options.spot
-    cfg['on_prem'] = options.on_prem
-    cfg['PALSAR'] = False
-    cfg['Legacy'] = False
-    cfg['default_rtc_resolution'] = get_db_config(conn, 'default_rtc_resolution')
-    if not cfg['default_rtc_resolution']:
-        cfg['default_rtc_resolution'] = '30m'
+
+    cfg['gtm5sar_config'] = get_config('gmt5sar', 'config_file')
 
     cfg['local_host'] = get_config('local', 'host')
     cfg['local_folder'] = get_config('local', 'folder')
     cfg['local_tiffs_only'] = is_yes(get_config('local', 'tiffs_only'))
     cfg['local_by_sub'] = is_yes(get_config('local', 'by_sub'))
 
-    cfg['from_esa'] = is_yes(get_db_config(conn, 'download_from_esa'))
- 
-    jwl = get_db_config(conn, "jers_whitelist")
-    if jwl is None:
-        jwl = []
-    else:
-        jwl = [int(x) for x in jwl.split(',') if x.strip().isdigit()]
-    cfg['jers_whitelist'] = jwl
-   
-    #Update proc name in case of generic wrapper
-    if name == 'generic_ts':
-        cfg['input_type'] = options.input_type
-        proc_type = cfg['input_type'].lower()
-        if proc_type == 'insar': 
-            name = 'stack_ts_insar'
-        else: 
-            name = 'stack_ts_rtc'
-        log.debug("Initializing process as proc-type {0} and with process key {1}".format(proc_type, name))
-    cfg['proc_name'] = name
-
-    # Move to the DB?
-    cfg['allow_non_sentinel'] = False
-    if name == 'rtc_gamma':
-        cfg['allow_non_sentinel'] = True
-
-    if is_config('general', 'verbose'):
-        options.verbose = True
-
-    setup_logger(cfg, options.verbose)
-
-    cfg['user_workdir'] = False
-    cfg['skip_processing'] = False
-
     cfg['oracle-dbsid'] = get_config('oracle', 'dbsid', '')
     cfg['oracle-user'] = get_config('oracle', 'user', '')
     cfg['oracle-pass'] = get_config('oracle', 'pass', '')
 
-    if options.debug:
-        if not os.path.isdir(options.debug):
-            log.critical("Workdir not found: " + options.debug)
+    if not airgap:
+        with get_db_connection('hyp3-db') as conn:
+            cfg['product_hash_type'] = get_db_config(conn, "product_hash_type")
+            cfg['bucket_lifecycle'] = get_db_config(conn, "bucket_lifecycle")
+            cfg['hyp3_product_url'] = get_db_config(conn, "hyp3_product_url")
+            cfg['hyp3-data-url'] = get_db_config(conn, "hyp3-data-url")
+            cfg['hyp3-browse-url'] = get_db_config(conn, "hyp3-browse-url")
+            cfg['default_rtc_resolution'] = get_db_config(conn, 'default_rtc_resolution')
+            cfg['from_esa'] = is_yes(get_db_config(conn, 'download_from_esa'))
+            jwl = get_db_config(conn, "jers_whitelist")
+            if jwl is None:
+                jwl = []
+            else:
+                jwl = [int(x) for x in jwl.split(',') if x.strip().isdigit()]
+            cfg['jers_whitelist'] = jwl
+
+        cfg['process_ids'] = get_process_id_dict()
+   
+    if is_config('general', 'verbose'):
+        args.verbose = True
+    setup_logger(cfg, args.verbose)
+
+    if args.debug:
+        if not os.path.isdir(args.debug):
+            log.critical("Workdir not found: " + args.debug)
             sys.exit(1)
         else:
-            cfg['workdir'] = options.debug
+            cfg['workdir'] = args.debug
             cfg['user_workdir'] = True
-
-    conn.close()
 
     # install signal handling for SIGTERM, SIGQUIT, and SIGHUP
     signal.signal(signal.SIGTERM, signal_handler)
@@ -182,11 +206,6 @@ def setup(name):
     signal.signal(signal.SIGHUP, signal_handler)
 
     return cfg
-
-
-def flush_print(*args, **kwargs):
-    print(*args, **kwargs)
-    sys.stdout.flush()
 
 
 def get_looks(dir_):
@@ -218,7 +237,6 @@ def get_looks(dir_):
 
 def user_ok_for_jers(cfg, user_id):
     return user_id in cfg['jers_whitelist']
-
 
 
 def find_phase_png(dir_):
@@ -653,11 +671,13 @@ def ssh_mkdir(host, folder):
     log.debug('Creating remote directory: {0}'.format(folder))
     os.system('ssh {0} mkdir -p {1}'.format(host, folder))
 
+
 def scp_file(host, local_file, remote_path):
     log.info('SCP: {0} to {1}:{2}'.format(local_file, host, remote_path))
     ssh_mkdir(host, remote_path)
     os.system('scp {0} {1}:{2}'.format(local_file, host, remote_path))
     # verify?
+
 
 def cp_file(local_file, dest_path):
     if not os.path.isdir(dest_path):
@@ -673,18 +693,22 @@ def cp_file(local_file, dest_path):
     log.info('Copying {0} to {1}'.format(local_file, dest_path))
     shutil.copy(local_file, dest_path)
 
+
 def is_rtc_tiff(filename):
     l = filename.lower()
     return l.endswith('_hh.tif') or l.endswith('_hv.tif') or \
         l.endswith('_vv.tif') or l.endswith('_vh.tif')
 
+
 def is_sacd_tiff(filename):
     l = filename.lower()
     return l.endswith('thresh.tif')
 
+
 def is_iso_xml(fileName):
     l = fileName.lower()
     return l.endswith('.iso.xml')
+
 
 def want_this_file(cfg, fileName):
     if is_rtc_tiff(fileName) and cfg['proc_id'] == 1:
@@ -694,6 +718,7 @@ def want_this_file(cfg, fileName):
     if is_iso_xml(fileName) and cfg['proc_id'] == 1:
         return True
     return False
+
 
 def stage_product_locally(product_path, cfg):
     if not cfg['local_folder']:
@@ -734,6 +759,7 @@ def stage_product_locally(product_path, cfg):
             scp_file(cfg['local_host'], product_path, dest_path)
         else:
             cp_file(product_path, dest_path)
+
 
 def upload_product(product_path, cfg, conn, browse_path=None, skip_notify=False):
     """Upload a product to the AWS S3 bucket.
@@ -1144,6 +1170,7 @@ def get_queue_item(cfg, exit=True, make_workdir=True):
 
     return found
 
+
 def findPathFrame(granule):
     url = "https://api.daac.asf.alaska.edu/services/search/param?granule_list={0}&output=json".format(granule)
     req = Request(url, headers={'content-type': 'application/json'})
@@ -1158,6 +1185,7 @@ def findPathFrame(granule):
     else:
         log.debug("Could not locate granule: {0}".format(granule))
         return {'path': None, 'frame': None}
+
 
 def find_orb(dir_, num=1):
     prec = 0
@@ -1363,9 +1391,11 @@ def zip_dir(path, zip_name):
     ziph.close()
     return True
 
+
 def unzip(file, dir_):
     zf = zipfile.ZipFile(file)
     zf.extractall(dir_)
+
 
 def resize_image(filename, width):
     if filename.endswith('.pdf'):
@@ -1381,6 +1411,7 @@ def resize_image(filename, width):
     newname = filename + '.small.jpg'
     img.save(newname, "JPEG")
     return newname
+
 
 def process(cfg, processor_cfg_key, args):
 

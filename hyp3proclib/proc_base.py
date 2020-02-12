@@ -1,14 +1,10 @@
-# proc_base.py
-# Rohan Weeden
-# Created: May 15, 2018
-
-# Base class for general processing scripts
+"""Base class for general processing scripts"""
 
 import time
 
-from proc_lib import get_queue_item, setup
-from proc_lib.logger import log
-from proc_lib.instance_tracking import manage_instance_and_lockfile
+from hyp3proclib import get_queue_item, setup
+from hyp3proclib.logger import log
+from hyp3proclib.instance_tracking import manage_instance_and_lockfile
 
 class Processor(object):
     def __init__(self, proc_name, proc_func, sleep_time=0, force_proc=False, stop_if_none=False):
