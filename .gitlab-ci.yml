@@ -5,6 +5,7 @@ variables:
 
 .conda_template: &before_conda_env
   - source $HOME/.bashrc
+  - conda update -n base -c defaults conda
   - conda install -c conda-forge -y tox tox-conda
 
 .before_template: &before_defaults
@@ -22,17 +23,15 @@ default:
   before_script:
     - *before_defaults
 
-
 stages:
-    - tools-bot
-    # Lots and lots of good testing options in this curated list:
-    #    https://github.com/vintasoftware/python-linters-and-code-analysis
+    # TODO: - tools-bot
     - static analysis
     - test
+    - dependancy analysis
     - build
     - publish
     - verify
-    - trigger
+    # TODO: - trigger
 
 
 bandit SAST:
@@ -44,8 +43,12 @@ bandit SAST:
     - python3 -m pip install bandit
   script:
     - bandit -r hyp3proclib
+    - bandit -r hyp3proclib -f html -o bandit_report.html
   allow_failure: true
-
+  artifacts:
+    when: always
+    paths:
+      - bandit_report.html
 
 trufflehog secrets:
   stage: static analysis
@@ -56,8 +59,29 @@ trufflehog secrets:
     - python3 -m pip install trufflehog
   script:
     - export LAST_TAG_HASH=$(git show-ref --hash -- $(git describe --abbrev=0))
-    - trufflehog --regex --entropy False --since_commit "${LAST_TAG_HASH}" file://"${PWD}"
+    - echo "config/.*.shp.xml" > exclude-patterns.txt
+    - trufflehog --regex --entropy False -x exclude-patterns.txt --since_commit "${LAST_TAG_HASH}" file://"${PWD}" > trufflehog_report.txt
+  artifacts:
+    when: on_failure
+    paths:
+      - trufflehog_report.txt
 
+gitleaks:
+  stage: static analysis
+  tags:
+    - kubernetes
+  image:
+    name: "zricethezav/gitleaks"
+    entrypoint: ["/bin/bash"]
+  before_script: []
+  script:
+    - export LAST_TAG_HASH=$(git show-ref --hash -- $(git describe --abbrev=0))
+    # NOTE: commit range goes back into history; commit-from == HEAD by default
+    - gitleaks -v --repo-path=./ --commit-to="${LAST_TAG_HASH}" --report=gitleaks_report.json
+  artifacts:
+    when: on_failure
+    paths:
+      - gitleaks_report.json
 
 flake8 full:
   stage: static analysis
@@ -67,9 +91,12 @@ flake8 full:
     - *before_defaults
     - python3 -m pip install flake8 flake8-import-order flake8-blind-except flake8-builtins
   script:
-    - flake8 --max-line-length=120
+    - flake8 --max-line-length=120 --statistics --tee --output-file flake8_report.txt
   allow_failure: true
-
+  artifacts:
+    when: always
+    paths:
+      - flake8_report.txt
 
 flake8 limted:
   stage: static analysis
@@ -81,6 +108,21 @@ flake8 limted:
   script:
     - flake8 --max-line-length=120  --ignore=A,B,E,I,W,N8
 
+pylint:
+  stage: static analysis
+  tags:
+    - kubernetes
+  before_script:
+    - *before_defaults
+    - python3 -m pip install pylint
+  script:
+    - pylint -r y  hyp3proclib 2>&1 | tee pylint_report.txt
+  allow_failure: true
+  artifacts:
+    when: always
+    paths:
+      - pylint_report.txt
+
 
 pytest 37:
   stage: test
@@ -91,6 +133,24 @@ pytest 37:
   script:
     - tox --develop -e py37 -- --cov=hyp3proclib
   coverage: '/TOTAL\s+\d+\s+\d+\s+(\d+%)/'
+  artifacts:
+    paths:
+      - pip_freeze_*.txt
+      - conda_export_*.txt
+
+safety 37:
+  stage: dependancy analysis
+  tags:
+    - kubernetes
+  before_script:
+    - *before_defaults
+    - python3 -m pip install safety
+  script:
+    - safety check --full-report --stdin < pip_freeze_py37.txt
+    - awk -F '=' '/^[^#]/ {print $1 "==" $2}' conda_export_py37.txt | safety check --full-report --stdin
+  needs:
+    - job: "pytest 37"
+      artifacts: true
 
 
 pytest 38:
@@ -101,6 +161,24 @@ pytest 38:
     - *before_conda_env
   script:
     - tox -e py38
+  artifacts:
+    paths:
+      - pip_freeze_*.txt
+      - conda_export_*.txt
+
+safety 38:
+  stage: dependancy analysis
+  tags:
+    - kubernetes
+  before_script:
+    - *before_defaults
+    - python3 -m pip install safety
+  script:
+    - safety check --full-report --stdin < pip_freeze_py38.txt
+    - awk -F '=' '/^[^#]/ {print $1 "==" $2}' conda_export_py38.txt | safety check --full-report --stdin
+  needs:
+    - job: "pytest 38"
+      artifacts: true
 
 
 pytest 36:
@@ -111,6 +189,24 @@ pytest 36:
     - *before_conda_env
   script:
     - tox -e py36
+  artifacts:
+    paths:
+      - pip_freeze_*.txt
+      - conda_export_*.txt
+
+safety 36:
+  stage: dependancy analysis
+  tags:
+    - kubernetes
+  before_script:
+    - *before_defaults
+    - python3 -m pip install safety
+  script:
+    - safety check --full-report --stdin < pip_freeze_py36.txt
+    - awk -F '=' '/^[^#]/ {print $1 "==" $2}' conda_export_py36.txt | safety check --full-report --stdin
+  needs:
+    - job: "pytest 36"
+      artifacts: true
 
 
 pytest 27:
@@ -121,6 +217,24 @@ pytest 27:
     - *before_conda_env
   script:
     - tox -e py27
+  artifacts:
+    paths:
+      - pip_freeze_*.txt
+      - conda_export_*.txt
+
+safety 27:
+  stage: dependancy analysis
+  tags:
+    - kubernetes
+  before_script:
+    - *before_defaults
+    - python3 -m pip install safety
+  script:
+    - safety check --full-report --stdin < pip_freeze_py27.txt
+    - awk -F '=' '/^[^#]/ {print $1 "==" $2}' conda_export_py27.txt | safety check --full-report --stdin
+  needs:
+    - job: "pytest 27"
+      artifacts: true
 
 
 build:
