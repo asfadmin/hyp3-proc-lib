@@ -11,6 +11,13 @@ def test_setup_cli():
         _ = hyp3proclib.setup('test_setup_cli', cli_args=['-h'])
 
 
+def test_setup_cli_version():
+    with pytest.raises(SystemExit):
+        _ = hyp3proclib.setup(
+            'test_setup_cli', cli_args=['--version'], sci_version='0.1.2'
+        )
+
+
 def test_setup_cfg():
     truth = 'abracadabra'
 

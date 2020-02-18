@@ -6,16 +6,24 @@ from hyp3proclib import get_queue_item, setup
 from hyp3proclib.logger import log
 from hyp3proclib.instance_tracking import manage_instance_and_lockfile
 
+
 class Processor(object):
-    def __init__(self, proc_name, proc_func, sleep_time=0, force_proc=False, stop_if_none=False):
+    def __init__(
+            self, proc_name, proc_func,
+            sleep_time=0, force_proc=False, stop_if_none=False,
+            cli_args=None, sci_version=None,
+    ):
         self.proc_name = proc_name
         self.proc_func = proc_func
         self.sleep_time = sleep_time
         self.force_proc = force_proc
         self.stop_if_none = stop_if_none
+        self.cli_args = cli_args
+        self.sci_version = sci_version
+        self.cfg = None
 
     def run(self):
-        self.cfg = setup(self.proc_name)
+        self.cfg = setup(self.proc_name, cli_args=self.cli_args, sci_version=self.sci_version)
         
         with manage_instance_and_lockfile(self.cfg):
             total = self.cfg['num_to_process']

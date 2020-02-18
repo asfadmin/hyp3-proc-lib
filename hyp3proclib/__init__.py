@@ -21,6 +21,7 @@ from PIL import Image
 import mimetypes
 from zipfile import ZipFile
 
+from hyp3lib import __version__ as _hyp3lib_version
 from hyp3lib.draw_polygon_on_raster import draw_polygon_from_shape_on_raster
 from hyp3lib.subset_geotiff_shape import subset_geotiff_shape
 from hyp3lib.asf_geometry import get_latlon_extent
@@ -65,7 +66,7 @@ def signal_handler(signum, frame):
     sys.exit(1)
 
 
-def setup(name, cli_args=None, airgap=False):
+def setup(name, cli_args=None, airgap=False, sci_version='Unknown'):
     # FIXME: Add description
     parser = argparse.ArgumentParser(prog=name)
     parser.add_argument(
@@ -106,7 +107,27 @@ def setup(name, cli_args=None, airgap=False):
         "--input", type=str, dest="input_type", default='RTC',
         help="For generic processors (time series), select input type, RTC or InSAR.",
     )
+    parser.add_argument(
+        '--version', action='store_true',
+        help="Show the HyP3 plugin and libraries version numbers and exit",
+    )
+
     args = parser.parse_args(cli_args)
+
+    # NOTE: argparse doesn't provide a way to use newlines in the version string
+    #       without also using raw formatting for the rest of the help message,
+    #       so we'll do it ourselves.
+    if args.version is True:
+        print(
+            '{name} v{sci_version}\n' \
+            'hyp3lib v{_hyp3lib_version}\n' \
+            'hyp3proclib v{_hyp3proclib_version}'.format(
+                name=name, sci_version=sci_version,
+                _hyp3lib_version=_hyp3lib_version,
+                _hyp3proclib_version=__version__,
+            )
+        )
+        sys.exit()
 
     cfg = dict()
     load_all_general_config(cfg)
