@@ -52,6 +52,7 @@ setup(
             'pytest-cov',
             'pytest-console-scripts',
             'tox',
+            'tox-conda',
         ]
     },
 
