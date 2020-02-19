@@ -1434,10 +1434,8 @@ def resize_image(filename, width):
     return newname
 
 
-def process(cfg, processor_cfg_key, args):
-
-    subprocess_args = [cfg[processor_cfg_key], ] + args
-    cmd = " ".join(subprocess_args)
+def process(cfg, processor_script, args):
+    cmd = " ".join([processor_script] + args)
 
     log.info('Processing starting at ' + str(datetime.datetime.now()))
 
@@ -1445,7 +1443,7 @@ def process(cfg, processor_cfg_key, args):
         output = execute(cfg, cmd)
     else:
         log.info('Processing skipped!')
-        log.debug('Command was ' + str(subprocess_args))
+        log.debug('Command was ' + cmd)
         output = "(debug mode)"
 
     cfg["success"] = True
