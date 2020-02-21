@@ -28,8 +28,7 @@ stages:
     - static analysis
     - test
     - dependancy analysis
-    - build
-    - publish
+    - package
     - verify
     # TODO: - trigger
 
@@ -256,20 +255,13 @@ safety 27:
       artifacts: true
 
 
-build:
-  stage: build
+package S3 PyPI:
+  stage: package
   tags:
     - kubernetes
   script:
     - echo "Building version $(python3 setup.py --version)"
     - python3 setup.py sdist bdist_wheel
-
-
-deploy S3 PyPI:
-  stage: publish
-  tags:
-    - kubernetes
-  script:
     - echo "Uploading version $(python3 setup.py --version) to S3-PyPI"
     - s3pypi --bucket hyp3-pypi --verbose
 
