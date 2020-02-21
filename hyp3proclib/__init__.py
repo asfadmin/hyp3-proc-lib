@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
-from __future__ import division
-from __future__ import print_function
+from __future__ import print_function, absolute_import, division, unicode_literals
 
 import argparse
 import boto3

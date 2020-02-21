@@ -3,14 +3,14 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+and this project adheres to [PEP 440](https://www.python.org/dev/peps/pep-0440/) 
+and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased](https://scm.asf.alaska.edu/hyp3/hyp3-proc-lib/compare/v0.0.0...develop) -- likely v0.0.1
 
 This is a fork of the old HyP3 `cloud-prog/processing` library with substantial changes
  
 ### Removed
- * python < 3.8 is no longer supported and likely won't work 
  * Removed unused `hyp3proclib.flush_print` function -- use `print( , flush=True)` instead.
  
 ### Added
@@ -24,6 +24,8 @@ This is a fork of the old HyP3 `cloud-prog/processing` library with substantial 
  `hyp3proclib.setup` (see above)
 
 ### Changed
+* All files have the `from __future__ import print_function, absolute_import, division, unicode_literals` 
+ imports added to make python 2 behave more like python 3 
 * all of `cloud-proc/processing/proc_lib` is now contained in the `hyp3proclib` package
 * `cloud-prog/processing/proc_base` module has been moved inside the `hyp3proclib` package
 * `hyp3proclib.process` now accepts the specific script to run, instead of a config key to locate the script

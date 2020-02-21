@@ -1,5 +1,7 @@
 """Module for proc_lib functions that manipulate the file system"""
 
+from __future__ import print_function, absolute_import, division, unicode_literals
+
 import errno
 import os
 import shutil

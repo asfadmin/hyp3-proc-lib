@@ -1,5 +1,7 @@
 """Base class for general processing scripts"""
 
+from __future__ import print_function, absolute_import, division, unicode_literals
+
 import time
 
 from hyp3proclib import get_queue_item, setup

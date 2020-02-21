@@ -1,5 +1,7 @@
 """Module for proc_lib config functions"""
 
+from __future__ import print_function, absolute_import, division, unicode_literals
+
 from six.moves.configparser import ConfigParser
 
 import hyp3proclib

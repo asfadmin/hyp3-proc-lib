@@ -1,5 +1,7 @@
 """Module for all proc_lib logging functions"""
 
+from __future__ import print_function, absolute_import, division, unicode_literals
+
 import logging
 import os
 import sys
