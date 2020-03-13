@@ -2,12 +2,11 @@
 
 from __future__ import print_function, absolute_import, division, unicode_literals
 
-import errno
+import datetime
 import os
 import shutil
 import sys
 import uuid
-import datetime
 from contextlib import contextmanager
 
 from hyp3proclib.logger import log
