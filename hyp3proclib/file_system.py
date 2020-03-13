@@ -13,19 +13,6 @@ from contextlib import contextmanager
 from hyp3proclib.logger import log
 
 
-def mkdir_p(path):
-    """
-    Make parent directories as needed and no error if existing. Works like `mkdir -p`.
-    """
-    try:
-        os.makedirs(path)
-    except OSError as exc:  # Python >2.5
-        if exc.errno == errno.EEXIST and os.path.isdir(path):
-            pass
-        else:
-            raise
-
-
 def setup_workdir(cfg):
     if cfg['user_workdir'] and len(cfg['workdir']) > 0:
         wd = cfg['workdir']

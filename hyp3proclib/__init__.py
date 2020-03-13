@@ -21,6 +21,7 @@ import mimetypes
 from zipfile import ZipFile
 
 from hyp3lib import __version__ as _hyp3lib_version
+from hyp3lib.file_subroutines import mkdir_p
 from hyp3lib.draw_polygon_on_raster import draw_polygon_from_shape_on_raster
 from hyp3lib.subset_geotiff_shape import subset_geotiff_shape
 from hyp3lib.asf_geometry import get_latlon_extent
@@ -30,7 +31,6 @@ from hyp3proclib.db import get_db_connection, query_database, get_db_config
 from hyp3proclib.emailer import notify_user, notify_user_failure
 from hyp3proclib.logger import log, setup_logger
 from hyp3proclib.file_system import setup_workdir, cleanup_lockfile, cleanup_workdir, check_stop  # noqa: F401
-from hyp3proclib.file_system import mkdir_p
 from hyp3proclib.instance_tracking import add_instance_record, update_instance_record
 from hyp3proclib.process_ids import get_process_id_dict
 
