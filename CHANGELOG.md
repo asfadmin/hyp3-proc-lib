@@ -15,7 +15,6 @@ This is a fork of the old HyP3 `cloud-prog/processing` library with substantial 
  
 ### Added
 * A packaging and testing structure -- now `pip` installable and testing is done via `pytest` and `tox` 
-* A `hyp3proclib.file_system.mkdir_p` method to make a directory and any needed parents (like `mkdir -p`)
 * `hyp3proclib.setup`  accepts new keyword arguments:
   * `cli_args` -- programmatically specify arguments to the argparse parser
   *  `airgap` -- Flag to prevent `setup` from connecting to the remote databases (for testing)
