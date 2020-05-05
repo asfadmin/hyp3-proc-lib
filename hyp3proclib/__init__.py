@@ -5,6 +5,7 @@ from __future__ import print_function, absolute_import, division, unicode_litera
 import argparse
 import boto3
 import datetime
+import glob
 import hashlib
 import json
 import os
@@ -23,6 +24,7 @@ from zipfile import ZipFile
 from hyp3lib import __version__ as _hyp3lib_version
 from hyp3lib.file_subroutines import mkdir_p
 from hyp3lib.draw_polygon_on_raster import draw_polygon_from_shape_on_raster
+from hyp3lib.simplify_shapefile import simplify_shapefile
 from hyp3lib.subset_geotiff_shape import subset_geotiff_shape
 from hyp3lib.asf_geometry import get_latlon_extent
 
@@ -289,7 +291,8 @@ def contains_allowable_error(s):
         'final range offset poly. coeff. errors',
         'final azimuth offset poly. coeff. errors',
         'raise FileException(error)',
-        'S3RegionRedirector.redirect_from_error'
+        'S3RegionRedirector.redirect_from_error',
+        'error is',
     ]
 
     return any([i in s for i in l])
@@ -1147,7 +1150,8 @@ def get_queue_item(cfg, exit=True, make_workdir=True):
                     cfg['process_name'] = r[12]
                     cfg['suffix'] = r[13]
                     cfg['proc_id'] = int(r[14])
-                    cfg['crop_to_selection'] = False #bool(r[19])
+                    # cfg['crop_to_selection'] = False
+                    cfg['crop_to_selection'] = bool(r[19])
                     if r[20] is None:
                         cfg['project_id'] = -1
                     else:
@@ -1492,6 +1496,17 @@ def generate_shapefile(conn, cfg, shapefile):
         shapefile, host, dbname, user, password, cfg['sub_id'])
 
     execute(cfg, cmd, expected=shapefile)
+
+    # Simplify complex shape files (over 300 points)
+    tmpshape = "tmp_shape_{}.shp".format(os.getpid())
+    simplify_shapefile(shapefile, tmpshape)
+    base_dir, base = os.path.split(tmpshape)
+    base1, ext = os.path.splitext(base)
+    for myfile in glob.glob("{}*".format(base1)):
+        ext = os.path.splitext(myfile)[1]
+        infile = os.path.join(base_dir, myfile)
+        outfile = os.path.join(base_dir, base1+ext)
+        shutil.move(infile, outfile)
 
 
 def clip_geotiff(conn, cfg, geotiff, shapefile=None):
