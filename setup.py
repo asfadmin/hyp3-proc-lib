@@ -38,7 +38,7 @@ setup(
 
     install_requires=[
         'boto3',
-        'hyp3lib',
+        'hyp3lib~=1.0',
         'importlib_metadata',
         'pillow',
         'psycopg2',
