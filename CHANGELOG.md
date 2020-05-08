@@ -11,7 +11,9 @@ and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 This is a fork of the old HyP3 `cloud-prog/processing` library with substantial changes
  
 ### Removed
- * Removed unused `hyp3proclib.flush_print` function -- use `print( , flush=True)` instead.
+ * Unused `hyp3proclib.flush_print` function -- use `print( , flush=True)` instead
+ * Any official python 2 support (Note: this version will *likely* still work with python 2, but future versions are
+  not expected to)
  
 ### Added
 * A packaging and testing structure -- now `pip` installable and testing is done via `pytest` and `tox` 
@@ -24,7 +26,8 @@ This is a fork of the old HyP3 `cloud-prog/processing` library with substantial 
 
 ### Changed
 * All files have the `from __future__ import print_function, absolute_import, division, unicode_literals` 
- imports added to make python 2 behave more like python 3 
+ imports added to make python 2 behave more like python 3 (NOTE: Python 2 is not longer officially supported, but it
+  *should* work for this version)
 * all of `cloud-proc/processing/proc_lib` is now contained in the `hyp3proclib` package
 * `cloud-prog/processing/proc_base` module has been moved inside the `hyp3proclib` package
 * `hyp3proclib.process` now accepts the specific script to run, instead of a config key to locate the script
