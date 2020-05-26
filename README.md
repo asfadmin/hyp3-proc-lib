@@ -1,3 +1,3 @@
-# hyp3-proc-lib
+# HyP3-proc-lib
 
-HyP3 process communication and io library plugin
+HyP3 process communication and IO library plugin
