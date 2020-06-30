@@ -6,7 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [PEP 440](https://www.python.org/dev/peps/pep-0440/) 
 and uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [v1.0.0](https://scm.asf.alaska.edu/hyp3/hyp3-proc-lib/compare/v0.0.0...v1.0.0)
+## [v1.0.1](https://github.com/asfadmin/hyp3-proc-lib/compare/v1.0.0...v1.0.1)
+
+### Fixed
+* Will not overwrite `default_rtc_resolution` as determined in code with value 
+  from depreciated HyP3 database config table
+
+## [v1.0.0](https://github.com/asfadmin/hyp3-proc-lib/compare/v0.0.0...v1.0.0)
 
 This is a fork of the old HyP3 `cloud-prog/processing` library with substantial changes
  

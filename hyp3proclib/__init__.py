@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+"""HyP3 process communication and IO library plugin"""
 
 from __future__ import print_function, absolute_import, division, unicode_literals
 
@@ -37,14 +37,14 @@ from hyp3proclib.instance_tracking import add_instance_record, update_instance_r
 from hyp3proclib.process_ids import get_process_id_dict
 
 # FIXME: Python 3.8+ this should be `from importlib.metadata...`
-from importlib_metadata import version, PackageNotFoundError
+from importlib_metadata import PackageNotFoundError, version
 
 try:
     __version__ = version(__name__)
 except PackageNotFoundError:
     # package is not installed!
     # Install in editable/develop mode via (from the top of this repo):
-    #    pip install --user .
+    #    pip install -e .
     # Or, to just get the version number use:
     #    python setup.py --version
     pass
@@ -199,7 +199,6 @@ def setup(name, cli_args=None, airgap=False, sci_version='Unknown'):
             cfg['hyp3_product_url'] = get_db_config(conn, "hyp3_product_url")
             cfg['hyp3-data-url'] = get_db_config(conn, "hyp3-data-url")
             cfg['hyp3-browse-url'] = get_db_config(conn, "hyp3-browse-url")
-            cfg['default_rtc_resolution'] = get_db_config(conn, 'default_rtc_resolution')
             cfg['from_esa'] = is_yes(get_db_config(conn, 'download_from_esa'))
             jwl = get_db_config(conn, "jers_whitelist")
             if jwl is None:
