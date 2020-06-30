@@ -199,7 +199,6 @@ def setup(name, cli_args=None, airgap=False, sci_version='Unknown'):
             cfg['hyp3_product_url'] = get_db_config(conn, "hyp3_product_url")
             cfg['hyp3-data-url'] = get_db_config(conn, "hyp3-data-url")
             cfg['hyp3-browse-url'] = get_db_config(conn, "hyp3-browse-url")
-            cfg['default_rtc_resolution'] = get_db_config(conn, 'default_rtc_resolution')
             cfg['from_esa'] = is_yes(get_db_config(conn, 'download_from_esa'))
             jwl = get_db_config(conn, "jers_whitelist")
             if jwl is None:
