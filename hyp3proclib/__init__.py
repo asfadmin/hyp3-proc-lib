@@ -208,7 +208,7 @@ def setup(name, cli_args=None, airgap=False, sci_version='Unknown'):
             cfg['jers_whitelist'] = jwl
 
         cfg['process_ids'] = get_process_id_dict()
-   
+
     if is_config('general', 'verbose'):
         args.verbose = True
     setup_logger(cfg, args.verbose)
@@ -292,6 +292,7 @@ def contains_allowable_error(s):
         'raise FileException(error)',
         'S3RegionRedirector.redirect_from_error',
         'error is',
+        'Error encountered fetching',
     ]
 
     return any([i in s for i in l])
@@ -819,7 +820,7 @@ def upload_product(product_path, cfg, conn, browse_path=None, skip_notify=False)
         pathFrame = findPathFrame(cfg['granule'])
     else:
         pathFrame = {"path": None, "frame": None}
-    
+
     cfg['filename'] = os.path.basename(product_path)
 
     res = query_database(conn, "select id, name, url, browse_url from products where local_queue_id = %(local_queue_id)s",
@@ -1199,8 +1200,8 @@ def findPathFrame(granule):
     req = Request(url, headers={'content-type': 'application/json'})
     response = urlopen(req)
     decoded = response.read().decode('utf8')
-    parsed_json = json.loads(decoded)    
-    
+    parsed_json = json.loads(decoded)
+
     if(parsed_json[0]):
         path = parsed_json[0][1]['track']
         frame = parsed_json[0][1]['frameNumber']
@@ -1383,7 +1384,7 @@ def update_queue_status(conn, cfg, new_status, msg=None, queue_id=None):
         sql = "update local_queue set status = %(status)s, message = %(msg)s where id = %(id)s"
         query_database(
             conn, sql, {'status': new_status, 'msg': msg, 'id': queue_id}, commit=True)
- 
+
     if cfg['proc_name'] != "notify":
         update_instance_record(cfg, conn)
 
@@ -1401,16 +1402,16 @@ def zip_dir(path, zip_name):
         mode = 'a'
     else:
         log.info('Creating zip {0} from folder {1}'.format(zip_name, path))
-    
+
     ziph = zipfile.ZipFile(
         zip_name, mode, zipfile.ZIP_DEFLATED, allowZip64=True)
-    
+
     for root, dirs, files in os.walk(path):
         for f in files:
             pathToRead = os.path.join(root, f)
             archivePath = os.path.relpath(os.path.join(root, f), os.path.join(path, ".."))
             ziph.write(pathToRead, archivePath)
-            
+
     ziph.close()
     return True
 
